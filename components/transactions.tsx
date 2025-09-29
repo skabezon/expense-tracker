@@ -182,7 +182,7 @@ export function Transactions() {
       date: transaction.date,
       description: transaction.description,
       category: transaction.category,
-      amount: transaction.amount,
+      amount: String(transaction.amount),
       method: transaction.method,
       unnecessary: transaction.unnecessary,
       tags: transaction.tags || ''
@@ -200,7 +200,10 @@ export function Transactions() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newTransaction)
+        body: JSON.stringify({
+          ...newTransaction,
+          amount: Number(newTransaction.amount)
+        })
       })
 
       if (!response.ok) throw new Error('Error al editar transacción')
@@ -604,6 +607,102 @@ export function Transactions() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Transacción</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="grid gap-4">
+              <div>
+                <Label htmlFor="edit-date">Fecha</Label>
+                <Input
+                  id="edit-date"
+                  type="date"
+                  value={newTransaction.date}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
+                  className="glass"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-description">Descripción</Label>
+                <Input
+                  id="edit-description"
+                  value={newTransaction.description}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                  className="glass"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-category">Categoría</Label>
+                <Select
+                  value={newTransaction.category}
+                  onValueChange={(value) => setNewTransaction({ ...newTransaction, category: value })}
+                >
+                  <SelectTrigger id="edit-category" className="glass">
+                    <SelectValue placeholder="Selecciona una categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-amount">Monto</Label>
+                <Input
+                  id="edit-amount"
+                  type="number"
+                  value={newTransaction.amount}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                  className="glass"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="edit-method"
+                  checked={newTransaction.method === "Crédito"}
+                  onCheckedChange={(checked) =>
+                    setNewTransaction({ ...newTransaction, method: checked ? "Crédito" : "Débito" })
+                  }
+                />
+                <Label htmlFor="edit-method">{newTransaction.method}</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="edit-unnecessary"
+                  checked={newTransaction.unnecessary}
+                  onCheckedChange={(checked) => setNewTransaction({ ...newTransaction, unnecessary: !!checked })}
+                />
+                <Label htmlFor="edit-unnecessary">Marcar como innecesario</Label>
+              </div>
+              <div>
+                <Label htmlFor="edit-tags">Etiquetas (opcional)</Label>
+                <Input
+                  id="edit-tags"
+                  placeholder="trabajo, personal, urgente..."
+                  value={newTransaction.tags}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, tags: e.target.value })}
+                  className="glass"
+                />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button variant="outline" onClick={() => setIsEditModalOpen(false)} className="flex-1">
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveEdit} className="flex-1 bg-gradient-to-r from-primary to-accent">
+                  Guardar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
