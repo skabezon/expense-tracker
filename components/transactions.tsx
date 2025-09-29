@@ -24,6 +24,7 @@ const sampleTransactions: Transaction[] = [
     amount: -85.5,
     method: "Débito",
     unnecessary: false,
+    tags: "alimentos,casa"
   },
   {
     id: 2,
@@ -33,6 +34,7 @@ const sampleTransactions: Transaction[] = [
     amount: -15.99,
     method: "Crédito",
     unnecessary: true,
+    tags: "streaming,mensual"
   },
   {
     id: 3,
@@ -42,6 +44,7 @@ const sampleTransactions: Transaction[] = [
     amount: -45.0,
     method: "Crédito",
     unnecessary: false,
+    tags: "auto,combustible"
   },
   {
     id: 4,
@@ -168,7 +171,8 @@ export function Transactions() {
     category: '',
     amount: '',
     method: 'Débito',
-    unnecessary: false
+    unnecessary: false,
+    tags: ''
   })
 
   // Función para manejar la edición
@@ -180,7 +184,8 @@ export function Transactions() {
       category: transaction.category,
       amount: transaction.amount,
       method: transaction.method,
-      unnecessary: transaction.unnecessary
+      unnecessary: transaction.unnecessary,
+      tags: transaction.tags || ''
     })
     setIsEditModalOpen(true)
   }
@@ -216,7 +221,8 @@ export function Transactions() {
         category: '',
         amount: 0,
         method: 'Débito',
-        unnecessary: false
+        unnecessary: false,
+        tags: ''
       })
     } catch (error) {
       console.error('Error:', error)
@@ -254,7 +260,8 @@ export function Transactions() {
           category: t.category,
           amount: t.amount,
           method: t.method,
-          unnecessary: t.unnecessary
+          unnecessary: t.unnecessary,
+          tags: t.tags || ''
         }))
         setTransactions(formattedData)
       } catch (error) {
@@ -285,19 +292,47 @@ export function Transactions() {
     }
   })
 
-  const handleAddTransaction = () => {
-    // Aquí se agregaría la lógica para guardar la transacción
-    console.log("Nueva transacción:", newTransaction)
-    setIsAddModalOpen(false)
-    setNewTransaction({
-      amount: "",
-      description: "",
-      category: "",
-      date: new Date().toISOString().split("T")[0],
-      method: "debit",
-      unnecessary: false,
-      tags: "",
-    })
+  const handleAddTransaction = async () => {
+    try {
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...newTransaction,
+          amount: Number(newTransaction.amount)
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Error al crear transacción')
+      }
+
+      const data = await response.json()
+      
+      // Actualizar la lista local con la nueva transacción
+      setTransactions(prev => [...prev, {
+        ...data,
+        id: data._id,
+        date: new Date(data.date).toISOString().split('T')[0]
+      }])
+      
+      setIsAddModalOpen(false)
+      setNewTransaction({
+        date: new Date().toISOString().split('T')[0],
+        description: '',
+        category: '',
+        amount: '',
+        method: 'Débito',
+        unnecessary: false,
+        tags: ''
+      })
+    } catch (error) {
+      console.error('Error:', error)
+      alert(error instanceof Error ? error.message : 'Error al crear transacción')
+    }
   }
 
   return (
@@ -372,12 +407,12 @@ export function Transactions() {
               <div className="flex items-center space-x-2">
                 <Switch
                   id="method"
-                  checked={newTransaction.method === "credit"}
+                  checked={newTransaction.method === "Crédito"}
                   onCheckedChange={(checked) =>
-                    setNewTransaction({ ...newTransaction, method: checked ? "credit" : "debit" })
+                    setNewTransaction({ ...newTransaction, method: checked ? "Crédito" : "Débito" })
                   }
                 />
-                <Label htmlFor="method">{newTransaction.method === "credit" ? "Crédito" : "Débito"}</Label>
+                <Label htmlFor="method">{newTransaction.method}</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -465,6 +500,7 @@ export function Transactions() {
                   <th className="text-left p-3 font-medium text-muted-foreground">Fecha</th>
                   <th className="text-left p-3 font-medium text-muted-foreground">Descripción</th>
                   <th className="text-left p-3 font-medium text-muted-foreground">Categoría</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">Etiquetas</th>
                   <th className="text-right p-3 font-medium text-muted-foreground">Monto</th>
                   <th className="text-center p-3 font-medium text-muted-foreground">Método</th>
                   <th className="text-center p-3 font-medium text-muted-foreground">Estado</th>
@@ -485,6 +521,11 @@ export function Transactions() {
                       <Badge variant="secondary" className="glass">
                         {transaction.category}
                       </Badge>
+                    </td>
+                    <td className="p-3">
+                      {transaction.tags?.split(',').map((tag, index) => (
+                        tag.trim() && <Badge key={index} variant="outline" className="mr-1">{tag.trim()}</Badge>
+                      ))}
                     </td>
                     <td
                       className={`p-3 text-right font-medium ${transaction.amount > 0 ? "text-success" : "text-foreground"}`}

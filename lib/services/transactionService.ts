@@ -12,6 +12,7 @@ interface Transaction {
   unnecessary: boolean
   createdAt: Date
   updatedAt: Date
+  tags?: string
 }
 
 interface CreateTransactionInput {
@@ -22,6 +23,7 @@ interface CreateTransactionInput {
   amount: number
   method: string
   unnecessary: boolean
+  tags?: string
 }
 
 interface UpdateTransactionInput extends Partial<CreateTransactionInput> {
