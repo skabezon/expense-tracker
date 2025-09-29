@@ -10,12 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Search, Edit, Trash2, CreditCard, Banknote } from "lucide-react"
 import type { Transaction } from "@/lib/types/transactions"
 import type { TransactionFormData } from "@/lib/types/transactionFormData" 
 import { LoadingScreen } from "@/components/loading-screen"
-
-
 
 const categories = ["Comida", "Transporte", "Entretenimiento", "Servicios", "Compras", "Salud", "Educación", "Otros"]
 
@@ -27,6 +26,7 @@ export function Transactions() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [activeMonth, setActiveMonth] = useState(new Date().toISOString().slice(0, 7)) // YYYY-MM format
   const [newTransaction, setNewTransaction] = useState<TransactionFormData>({
     date: new Date().toISOString().split('T')[0],
     description: '',
@@ -36,6 +36,18 @@ export function Transactions() {
     unnecessary: false,
     tags: ''
   })
+
+  const getAvailableMonths = () => {
+    const months = new Set(transactions.map(t => t.date.slice(0, 7)))
+    return Array.from(months).sort().reverse() // Newest first
+  }
+
+  const formatMonth = (monthStr: string) => {
+    const date = new Date(monthStr + '-01')
+    console.log("jocha")
+    console.log(date)
+    return new Intl.DateTimeFormat('es', { month: 'long', year: 'numeric' }).format(date)
+  }
 
   // Función para manejar la edición
   const handleEdit = (transaction: Transaction) => {
@@ -140,23 +152,22 @@ export function Transactions() {
     fetchTransactions()
   }, [])
 
-
   const filteredTransactions = transactions.filter((transaction) => {
     const matchesSearch =
       transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
 
+    const matchesMonth = transaction.date.startsWith(activeMonth)
+
     switch (filter) {
       case "credit":
-        return matchesSearch && transaction.method === "Crédito"
+        return matchesSearch && matchesMonth && transaction.method === "Crédito"
       case "debit":
-        return matchesSearch && transaction.method === "Débito"
-      case "month":
-        return matchesSearch && transaction.date.startsWith("2024-12")
+        return matchesSearch && matchesMonth && transaction.method === "Débito"
       case "unnecessary":
-        return matchesSearch && transaction.unnecessary
+        return matchesSearch && matchesMonth && transaction.unnecessary
       default:
-        return matchesSearch
+        return matchesSearch && matchesMonth
     }
   })
 
@@ -180,7 +191,6 @@ export function Transactions() {
 
       const data = await response.json()
       
-      // Actualizar la lista local con la nueva transacción
       setTransactions(prev => [...prev, {
         ...data,
         id: data._id,
@@ -344,9 +354,6 @@ export function Transactions() {
               <Button variant={filter === "debit" ? "default" : "outline"} onClick={() => setFilter("debit")} size="sm">
                 Solo Débito
               </Button>
-              <Button variant={filter === "month" ? "default" : "outline"} onClick={() => setFilter("month")} size="sm">
-                Este Mes
-              </Button>
               <Button
                 variant={filter === "unnecessary" ? "default" : "outline"}
                 onClick={() => setFilter("unnecessary")}
@@ -364,117 +371,128 @@ export function Transactions() {
         <CardHeader>
           <CardTitle>Historial de Transacciones</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left p-3 font-medium text-muted-foreground">Fecha</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Descripción</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Categoría</th>
-                  <th className="text-left p-3 font-medium text-muted-foreground">Etiquetas</th>
-                  <th className="text-right p-3 font-medium text-muted-foreground">Monto</th>
-                  <th className="text-center p-3 font-medium text-muted-foreground">Método</th>
-                  <th className="text-center p-3 font-medium text-muted-foreground">Estado</th>
-                  <th className="text-center p-3 font-medium text-muted-foreground">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTransactions.map((transaction) => (
-                  <tr
-                    key={transaction.id}
-                    className="border-b border-border/50 hover:bg-secondary/20 transition-colors"
-                  >
-                    <td className="p-3 text-sm text-muted-foreground">
-                      {new Date(transaction.date).toLocaleDateString("es-ES")}
-                    </td>
-                    <td className="p-3 font-medium">{transaction.description}</td>
-                    <td className="p-3">
-                      <Badge variant="secondary" className="glass">
-                        {transaction.category}
-                      </Badge>
-                    </td>
-                    <td className="p-3">
-                      {transaction.tags?.split(',').map((tag, index) => (
-                        tag.trim() && <Badge key={index} variant="outline" className="mr-1">{tag.trim()}</Badge>
-                      ))}
-                    </td>
-                    <td
-                      className={`p-3 text-right font-medium ${transaction.amount > 0 ? "text-success" : "text-foreground"}`}
-                    >
-                      {transaction.amount > 0 ? "+" : ""}${Math.abs(transaction.amount).toFixed(2)}
-                    </td>
-                    <td className="p-3 text-center">
-                      <Badge
-                        variant="secondary"
-                        className={
-                          transaction.method === "Crédito" ? "bg-[#f59e0b] text-white" : "bg-[#06b6d4] text-white"
-                        }
+        <Tabs defaultValue={activeMonth} onValueChange={setActiveMonth} className="w-full">
+          <TabsList className="ml-6">
+            {getAvailableMonths().map((month) => (
+              <TabsTrigger key={month} value={month} className="min-w-[140px]">
+                {formatMonth(month)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value={activeMonth}>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left p-3 font-medium text-muted-foreground">Fecha</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Descripción</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Categoría</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground">Etiquetas</th>
+                      <th className="text-right p-3 font-medium text-muted-foreground">Monto</th>
+                      <th className="text-center p-3 font-medium text-muted-foreground">Método</th>
+                      <th className="text-center p-3 font-medium text-muted-foreground">Estado</th>
+                      <th className="text-center p-3 font-medium text-muted-foreground">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTransactions.map((transaction) => (
+                      <tr
+                        key={transaction.id}
+                        className="border-b border-border/50 hover:bg-secondary/20 transition-colors"
                       >
-                        {transaction.method === "Crédito" ? (
-                          <>
-                            <CreditCard className="w-3 h-3 mr-1" />
-                            Crédito
-                          </>
-                        ) : (
-                          <>
-                            <Banknote className="w-3 h-3 mr-1" />
-                            Débito
-                          </>
-                        )}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-center">
-                      {transaction.unnecessary && (
-                        <Badge variant="destructive" className="text-xs">
-                          Innecesario
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="p-3 text-center">
-                      <div className="flex justify-center gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0"
-                          onClick={() => handleEdit(transaction)}
+                        <td className="p-3 text-sm text-muted-foreground">
+                          {new Date(transaction.date).toLocaleDateString("es-ES")}
+                        </td>
+                        <td className="p-3 font-medium">{transaction.description}</td>
+                        <td className="p-3">
+                          <Badge variant="secondary" className="glass">
+                            {transaction.category}
+                          </Badge>
+                        </td>
+                        <td className="p-3">
+                          {transaction.tags?.split(',').map((tag, index) => (
+                            tag.trim() && <Badge key={index} variant="outline" className="mr-1">{tag.trim()}</Badge>
+                          ))}
+                        </td>
+                        <td
+                          className={`p-3 text-right font-medium ${transaction.amount > 0 ? "text-success" : "text-foreground"}`}
                         >
-                          <Edit className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(transaction.id)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          {transaction.amount > 0 ? "+" : ""}${Math.abs(transaction.amount).toFixed(2)}
+                        </td>
+                        <td className="p-3 text-center">
+                          <Badge
+                            variant="secondary"
+                            className={
+                              transaction.method === "Crédito" ? "bg-[#f59e0b] text-white" : "bg-[#06b6d4] text-white"
+                            }
+                          >
+                            {transaction.method === "Crédito" ? (
+                              <>
+                                <CreditCard className="w-3 h-3 mr-1" />
+                                Crédito
+                              </>
+                            ) : (
+                              <>
+                                <Banknote className="w-3 h-3 mr-1" />
+                                Débito
+                              </>
+                            )}
+                          </Badge>
+                        </td>
+                        <td className="p-3 text-center">
+                          {transaction.unnecessary && (
+                            <Badge variant="destructive" className="text-xs">
+                              Innecesario
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="p-3 text-center">
+                          <div className="flex justify-center gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0"
+                              onClick={() => handleEdit(transaction)}
+                            >
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(transaction.id)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-          {/* Pagination */}
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-            <p className="text-sm text-muted-foreground">
-              Mostrando {filteredTransactions.length} de {transactions.length} transacciones
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled>
-                Anterior
-              </Button>
-              <Button variant="outline" size="sm">
-                1
-              </Button>
-              <Button variant="outline" size="sm" disabled>
-                Siguiente
-              </Button>
-            </div>
-          </div>
-        </CardContent>
+              {/* Pagination */}
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando {filteredTransactions.length} de {transactions.length} transacciones
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled>
+                    Anterior
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    1
+                  </Button>
+                  <Button variant="outline" size="sm" disabled>
+                    Siguiente
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </TabsContent>
+        </Tabs>
       </Card>
 
       {/* Edit Modal */}

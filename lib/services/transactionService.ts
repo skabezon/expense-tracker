@@ -111,8 +111,9 @@ export class TransactionService {
    */
   static async findByMonth(userId: string, month: number, year: number): Promise<Transaction[]> {
     const collection = await this.getCollection()
-    const startDate = new Date(year, month, 1)
+    const startDate = new Date(year, month + 1, 1)
     const endDate = new Date(year, month + 1, 0)
+
 
     return await collection
       .find({
