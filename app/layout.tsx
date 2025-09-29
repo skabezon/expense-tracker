@@ -6,6 +6,8 @@ import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import "./globals.css"
 
+// 👇 importa tu provider
+import { SessionProvider } from "@/components/provider/session-provider"
 export const metadata: Metadata = {
   title: "ExpenseTracker - Gestión Inteligente de Gastos",
   description: "Dashboard moderno para el seguimiento y análisis de gastos personales",
@@ -20,7 +22,9 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased`}>
-        <Suspense fallback={null}>{children}</Suspense>
+        <SessionProvider>  {/* ✅ Agrega el provider aquí */}
+          <Suspense fallback={null}>{children}</Suspense>
+        </SessionProvider>
         <Analytics />
       </body>
     </html>

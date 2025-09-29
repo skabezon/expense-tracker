@@ -3,6 +3,8 @@
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { LayoutDashboard, Receipt, BarChart3, Tags, Settings, Wallet } from "lucide-react"
+import { UserMenu } from "@/components/user-menu"
+import { Separator } from "@/components/ui/separator"
 
 interface SidebarProps {
   activeTab: string
@@ -19,7 +21,7 @@ const navigation = [
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   return (
-    <div className="w-64 glass border-r border-border/50 p-6">
+    <div className="w-64 glass border-r border-border/50 p-6 flex flex-col h-screen">
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
           <Wallet className="w-6 h-6 text-primary-foreground" />
@@ -32,7 +34,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         </div>
       </div>
 
-      <nav className="space-y-2">
+      <nav className="space-y-2 flex-1">
         {navigation.map((item) => {
           const Icon = item.icon
           return (
@@ -53,6 +55,14 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           )
         })}
       </nav>
+
+      <div className="mt-auto">
+        <Separator className="mb-4" />
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Mi cuenta</span>
+          <UserMenu />
+        </div>
+      </div>
     </div>
   )
 }
