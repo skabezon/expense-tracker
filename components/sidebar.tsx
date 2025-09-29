@@ -2,8 +2,8 @@
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Receipt, BarChart3, Tags, Settings, Wallet } from "lucide-react"
-import { UserMenu } from "@/components/user-menu"
+import { LayoutDashboard, Receipt, BarChart3, Tags, Settings, Wallet, LogOut } from "lucide-react"
+import { useSession, signOut } from "next-auth/react"
 import { Separator } from "@/components/ui/separator"
 
 interface SidebarProps {
@@ -56,11 +56,18 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         })}
       </nav>
 
-      <div className="mt-auto">
-        <Separator className="mb-4" />
-        <div className="flex items-center justify-between">
+      <div className="mt-auto space-y-4">
+        <Separator />
+        <div className="flex flex-col gap-2">
           <span className="text-sm text-muted-foreground">Mi cuenta</span>
-          <UserMenu />
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 text-left text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => signOut({ callbackUrl: "/auth" })}
+          >
+            <LogOut className="w-4 h-4" />
+            Cerrar sesión
+          </Button>
         </div>
       </div>
     </div>

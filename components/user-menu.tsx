@@ -1,7 +1,18 @@
 "use client"
 
+import { useState } from "react"
 import { signOut, useSession } from "next-auth/react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,13 +26,23 @@ import { LogOut, User, Settings } from "lucide-react"
 
 export function UserMenu() {
   const { data: session } = useSession()
+  const [isLoading, setIsLoading] = useState(false)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
   if (!session?.user) {
     return null
   }
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/auth" })
+    try {
+      setIsLoading(true)
+      await signOut({ callbackUrl: "/auth" })
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error)
+    } finally {
+      setIsLoading(false)
+      setShowConfirmDialog(false)
+    }
   }
 
   const initials = session.user.name
@@ -60,11 +81,36 @@ export function UserMenu() {
           <span>Configuración</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="cursor-pointer text-destructive" onClick={handleSignOut}>
+        <DropdownMenuItem 
+          className="cursor-pointer text-destructive" 
+          onClick={() => setShowConfirmDialog(true)}
+          disabled={isLoading}
+        >
           <LogOut className="mr-2 h-4 w-4" />
-          <span>Cerrar sesión</span>
+          <span>{isLoading ? "Cerrando sesión..." : "Cerrar sesión"}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cerrar sesión?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas cerrar sesión? Tendrás que volver a iniciar sesión para acceder a tu cuenta.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleSignOut}
+              disabled={isLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isLoading ? "Cerrando sesión..." : "Cerrar sesión"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DropdownMenu>
   )
 }

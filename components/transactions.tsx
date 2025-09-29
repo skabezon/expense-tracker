@@ -12,149 +12,10 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Plus, Search, Edit, Trash2, CreditCard, Banknote } from "lucide-react"
 import type { Transaction } from "@/lib/types/transactions"
-import type { TransactionFormData } from "@/lib/types/transactionFormData"
+import type { TransactionFormData } from "@/lib/types/transactionFormData" 
+import { LoadingScreen } from "@/components/loading-screen"
 
-// Datos de ejemplo iniciales
-const sampleTransactions: Transaction[] = [
-  {
-    id: 1,
-    date: "2024-12-15",
-    description: "Supermercado Central",
-    category: "Comida",
-    amount: -85.5,
-    method: "Débito",
-    unnecessary: false,
-    tags: "alimentos,casa"
-  },
-  {
-    id: 2,
-    date: "2024-12-14",
-    description: "Netflix Suscripción",
-    category: "Entretenimiento",
-    amount: -15.99,
-    method: "Crédito",
-    unnecessary: true,
-    tags: "streaming,mensual"
-  },
-  {
-    id: 3,
-    date: "2024-12-13",
-    description: "Gasolina Shell",
-    category: "Transporte",
-    amount: -45.0,
-    method: "Crédito",
-    unnecessary: false,
-    tags: "auto,combustible"
-  },
-  {
-    id: 4,
-    date: "2024-12-12",
-    description: "Salario Diciembre",
-    category: "Ingresos",
-    amount: 3450.0,
-    method: "Débito",
-    unnecessary: false,
-  },
-  {
-    id: 5,
-    date: "2024-12-11",
-    description: "Restaurante Italiano",
-    category: "Comida",
-    amount: -67.8,
-    method: "Crédito",
-    unnecessary: true,
-  },
-  {
-    id: 6,
-    date: "2024-12-10",
-    description: "Farmacia San Pablo",
-    category: "Salud",
-    amount: -23.45,
-    method: "Débito",
-    unnecessary: false,
-  },
-  {
-    id: 7,
-    date: "2024-12-09",
-    description: "Amazon Compra",
-    category: "Compras",
-    amount: -156.99,
-    method: "Crédito",
-    unnecessary: true,
-  },
-  {
-    id: 8,
-    date: "2024-12-08",
-    description: "Uber Viaje",
-    category: "Transporte",
-    amount: -18.5,
-    method: "Crédito",
-    unnecessary: false,
-  },
-  {
-    id: 9,
-    date: "2024-12-07",
-    description: "Electricidad CFE",
-    category: "Servicios",
-    amount: -89.3,
-    method: "Débito",
-    unnecessary: false,
-  },
-  {
-    id: 10,
-    date: "2024-12-06",
-    description: "Starbucks",
-    category: "Comida",
-    amount: -12.5,
-    method: "Crédito",
-    unnecessary: true,
-  },
-  {
-    id: 11,
-    date: "2024-12-05",
-    description: "Gimnasio Mensualidad",
-    category: "Salud",
-    amount: -45.0,
-    method: "Débito",
-    unnecessary: false,
-  },
-  {
-    id: 12,
-    date: "2024-12-04",
-    description: "Cine Cinépolis",
-    category: "Entretenimiento",
-    amount: -28.0,
-    method: "Crédito",
-    unnecessary: false,
-  },
-  {
-    id: 13,
-    date: "2024-12-03",
-    description: "Freelance Proyecto",
-    category: "Ingresos",
-    amount: 800.0,
-    method: "Débito",
-    unnecessary: false,
-  },
-  {
-    id: 14,
-    date: "2024-12-02",
-    description: "Ropa H&M",
-    category: "Compras",
-    amount: -89.99,
-    method: "Crédito",
-    unnecessary: true,
-  },
-  {
-    id: 15,
-    date: "2024-12-01",
-    description: "Internet Telmex",
-    category: "Servicios",
-    amount: -599.0,
-    method: "Débito",
-    unnecessary: false,
-  },
-]
+
 
 const categories = ["Comida", "Transporte", "Entretenimiento", "Servicios", "Compras", "Salud", "Educación", "Otros"]
 
@@ -164,7 +25,8 @@ export function Transactions() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
-  const [transactions, setTransactions] = useState(sampleTransactions)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [newTransaction, setNewTransaction] = useState<TransactionFormData>({
     date: new Date().toISOString().split('T')[0],
     description: '',
@@ -222,7 +84,7 @@ export function Transactions() {
         date: '',
         description: '',
         category: '',
-        amount: 0,
+        amount: '0',
         method: 'Débito',
         unnecessary: false,
         tags: ''
@@ -252,6 +114,7 @@ export function Transactions() {
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
+        setIsLoading(true)
         const response = await fetch('/api/transactions')
         if (!response.ok) throw new Error('Error al cargar transacciones')
         const data = await response.json()
@@ -269,6 +132,8 @@ export function Transactions() {
         setTransactions(formattedData)
       } catch (error) {
         console.error('Error:', error)
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -276,7 +141,7 @@ export function Transactions() {
   }, [])
 
 
-  const filteredTransactions = transactions.filter((transaction: Transaction) => {
+  const filteredTransactions = transactions.filter((transaction) => {
     const matchesSearch =
       transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
@@ -336,6 +201,10 @@ export function Transactions() {
       console.error('Error:', error)
       alert(error instanceof Error ? error.message : 'Error al crear transacción')
     }
+  }
+
+  if (isLoading) {
+    return <LoadingScreen />
   }
 
   return (
