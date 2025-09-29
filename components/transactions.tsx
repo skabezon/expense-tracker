@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,8 +11,11 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Plus, Search, Edit, Trash2, CreditCard, Banknote } from "lucide-react"
+import type { Transaction } from "@/lib/types/transactions"
+import type { TransactionFormData } from "@/lib/types/transactionFormData"
 
-const sampleTransactions = [
+// Datos de ejemplo iniciales
+const sampleTransactions: Transaction[] = [
   {
     id: 1,
     date: "2024-12-15",
@@ -156,17 +159,114 @@ export function Transactions() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filter, setFilter] = useState("all")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [newTransaction, setNewTransaction] = useState({
-    amount: "",
-    description: "",
-    category: "",
-    date: new Date().toISOString().split("T")[0],
-    method: "debit",
-    unnecessary: false,
-    tags: "",
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
+  const [transactions, setTransactions] = useState(sampleTransactions)
+  const [newTransaction, setNewTransaction] = useState<TransactionFormData>({
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    category: '',
+    amount: '',
+    method: 'Débito',
+    unnecessary: false
   })
 
-  const filteredTransactions = sampleTransactions.filter((transaction) => {
+  // Función para manejar la edición
+  const handleEdit = (transaction: Transaction) => {
+    setEditingTransaction(transaction)
+    setNewTransaction({
+      date: transaction.date,
+      description: transaction.description,
+      category: transaction.category,
+      amount: transaction.amount,
+      method: transaction.method,
+      unnecessary: transaction.unnecessary
+    })
+    setIsEditModalOpen(true)
+  }
+
+  // Función para guardar la edición
+  const handleSaveEdit = async () => {
+    if (!editingTransaction) return
+
+    try {
+      const response = await fetch(`/api/transactions/${editingTransaction.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newTransaction)
+      })
+
+      if (!response.ok) throw new Error('Error al editar transacción')
+      const updatedTransaction = await response.json()
+
+      setTransactions(transactions.map(t => 
+        t.id === editingTransaction.id ? {
+          ...updatedTransaction,
+          id: updatedTransaction._id,
+          date: new Date(updatedTransaction.date).toISOString().split('T')[0]
+        } : t
+      ))
+      setIsEditModalOpen(false)
+      setEditingTransaction(null)
+      setNewTransaction({
+        date: '',
+        description: '',
+        category: '',
+        amount: 0,
+        method: 'Débito',
+        unnecessary: false
+      })
+    } catch (error) {
+      console.error('Error:', error)
+    }
+  }
+
+  // Función para eliminar una transacción
+  const handleDelete = async (id: string | number) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar esta transacción?')) return
+
+    try {
+      const response = await fetch(`/api/transactions/${id}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) throw new Error('Error al eliminar transacción')
+      setTransactions(transactions.filter(t => t.id !== id))
+    } catch (error) {
+      console.error('Error:', error)
+    }
+  }
+
+  // Cargar transacciones de la API
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const response = await fetch('/api/transactions')
+        if (!response.ok) throw new Error('Error al cargar transacciones')
+        const data = await response.json()
+        // Convertir los datos de la API al formato de la interfaz actual
+        const formattedData = data.map((t: any): Transaction => ({
+          id: t._id,
+          date: new Date(t.date).toISOString().split('T')[0],
+          description: t.description,
+          category: t.category,
+          amount: t.amount,
+          method: t.method,
+          unnecessary: t.unnecessary
+        }))
+        setTransactions(formattedData)
+      } catch (error) {
+        console.error('Error:', error)
+      }
+    }
+
+    fetchTransactions()
+  }, [])
+
+
+  const filteredTransactions = transactions.filter((transaction: Transaction) => {
     const matchesSearch =
       transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
@@ -420,13 +520,19 @@ export function Transactions() {
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-1">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0"
+                          onClick={() => handleEdit(transaction)}
+                        >
                           <Edit className="w-3 h-3" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(transaction.id)}
                         >
                           <Trash2 className="w-3 h-3" />
                         </Button>
@@ -441,7 +547,7 @@ export function Transactions() {
           {/* Pagination */}
           <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
             <p className="text-sm text-muted-foreground">
-              Mostrando {filteredTransactions.length} de {sampleTransactions.length} transacciones
+              Mostrando {filteredTransactions.length} de {transactions.length} transacciones
             </p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" disabled>
