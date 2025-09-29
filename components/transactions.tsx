@@ -1,0 +1,462 @@
+"use client"
+
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Plus, Search, Edit, Trash2, CreditCard, Banknote } from "lucide-react"
+
+const sampleTransactions = [
+  {
+    id: 1,
+    date: "2024-12-15",
+    description: "Supermercado Central",
+    category: "Comida",
+    amount: -85.5,
+    method: "Débito",
+    unnecessary: false,
+  },
+  {
+    id: 2,
+    date: "2024-12-14",
+    description: "Netflix Suscripción",
+    category: "Entretenimiento",
+    amount: -15.99,
+    method: "Crédito",
+    unnecessary: true,
+  },
+  {
+    id: 3,
+    date: "2024-12-13",
+    description: "Gasolina Shell",
+    category: "Transporte",
+    amount: -45.0,
+    method: "Crédito",
+    unnecessary: false,
+  },
+  {
+    id: 4,
+    date: "2024-12-12",
+    description: "Salario Diciembre",
+    category: "Ingresos",
+    amount: 3450.0,
+    method: "Débito",
+    unnecessary: false,
+  },
+  {
+    id: 5,
+    date: "2024-12-11",
+    description: "Restaurante Italiano",
+    category: "Comida",
+    amount: -67.8,
+    method: "Crédito",
+    unnecessary: true,
+  },
+  {
+    id: 6,
+    date: "2024-12-10",
+    description: "Farmacia San Pablo",
+    category: "Salud",
+    amount: -23.45,
+    method: "Débito",
+    unnecessary: false,
+  },
+  {
+    id: 7,
+    date: "2024-12-09",
+    description: "Amazon Compra",
+    category: "Compras",
+    amount: -156.99,
+    method: "Crédito",
+    unnecessary: true,
+  },
+  {
+    id: 8,
+    date: "2024-12-08",
+    description: "Uber Viaje",
+    category: "Transporte",
+    amount: -18.5,
+    method: "Crédito",
+    unnecessary: false,
+  },
+  {
+    id: 9,
+    date: "2024-12-07",
+    description: "Electricidad CFE",
+    category: "Servicios",
+    amount: -89.3,
+    method: "Débito",
+    unnecessary: false,
+  },
+  {
+    id: 10,
+    date: "2024-12-06",
+    description: "Starbucks",
+    category: "Comida",
+    amount: -12.5,
+    method: "Crédito",
+    unnecessary: true,
+  },
+  {
+    id: 11,
+    date: "2024-12-05",
+    description: "Gimnasio Mensualidad",
+    category: "Salud",
+    amount: -45.0,
+    method: "Débito",
+    unnecessary: false,
+  },
+  {
+    id: 12,
+    date: "2024-12-04",
+    description: "Cine Cinépolis",
+    category: "Entretenimiento",
+    amount: -28.0,
+    method: "Crédito",
+    unnecessary: false,
+  },
+  {
+    id: 13,
+    date: "2024-12-03",
+    description: "Freelance Proyecto",
+    category: "Ingresos",
+    amount: 800.0,
+    method: "Débito",
+    unnecessary: false,
+  },
+  {
+    id: 14,
+    date: "2024-12-02",
+    description: "Ropa H&M",
+    category: "Compras",
+    amount: -89.99,
+    method: "Crédito",
+    unnecessary: true,
+  },
+  {
+    id: 15,
+    date: "2024-12-01",
+    description: "Internet Telmex",
+    category: "Servicios",
+    amount: -599.0,
+    method: "Débito",
+    unnecessary: false,
+  },
+]
+
+const categories = ["Comida", "Transporte", "Entretenimiento", "Servicios", "Compras", "Salud", "Educación", "Otros"]
+
+export function Transactions() {
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filter, setFilter] = useState("all")
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [newTransaction, setNewTransaction] = useState({
+    amount: "",
+    description: "",
+    category: "",
+    date: new Date().toISOString().split("T")[0],
+    method: "debit",
+    unnecessary: false,
+    tags: "",
+  })
+
+  const filteredTransactions = sampleTransactions.filter((transaction) => {
+    const matchesSearch =
+      transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
+
+    switch (filter) {
+      case "credit":
+        return matchesSearch && transaction.method === "Crédito"
+      case "debit":
+        return matchesSearch && transaction.method === "Débito"
+      case "month":
+        return matchesSearch && transaction.date.startsWith("2024-12")
+      case "unnecessary":
+        return matchesSearch && transaction.unnecessary
+      default:
+        return matchesSearch
+    }
+  })
+
+  const handleAddTransaction = () => {
+    // Aquí se agregaría la lógica para guardar la transacción
+    console.log("Nueva transacción:", newTransaction)
+    setIsAddModalOpen(false)
+    setNewTransaction({
+      amount: "",
+      description: "",
+      category: "",
+      date: new Date().toISOString().split("T")[0],
+      method: "debit",
+      unnecessary: false,
+      tags: "",
+    })
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-balance">Transacciones</h1>
+          <p className="text-muted-foreground">Gestiona y revisa todas tus transacciones</p>
+        </div>
+        <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90">
+              <Plus className="w-4 h-4 mr-2" />
+              Agregar Transacción
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="glass">
+            <DialogHeader>
+              <DialogTitle>Nueva Transacción</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="amount">Monto</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  placeholder="0.00"
+                  value={newTransaction.amount}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                  className="glass"
+                />
+              </div>
+              <div>
+                <Label htmlFor="description">Descripción</Label>
+                <Input
+                  id="description"
+                  placeholder="Descripción de la transacción"
+                  value={newTransaction.description}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                  className="glass"
+                />
+              </div>
+              <div>
+                <Label htmlFor="category">Categoría</Label>
+                <Select
+                  value={newTransaction.category}
+                  onValueChange={(value) => setNewTransaction({ ...newTransaction, category: value })}
+                >
+                  <SelectTrigger className="glass">
+                    <SelectValue placeholder="Selecciona una categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="date">Fecha</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={newTransaction.date}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
+                  className="glass"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="method"
+                  checked={newTransaction.method === "credit"}
+                  onCheckedChange={(checked) =>
+                    setNewTransaction({ ...newTransaction, method: checked ? "credit" : "debit" })
+                  }
+                />
+                <Label htmlFor="method">{newTransaction.method === "credit" ? "Crédito" : "Débito"}</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="unnecessary"
+                  checked={newTransaction.unnecessary}
+                  onCheckedChange={(checked) => setNewTransaction({ ...newTransaction, unnecessary: !!checked })}
+                />
+                <Label htmlFor="unnecessary">Marcar como innecesario</Label>
+              </div>
+              <div>
+                <Label htmlFor="tags">Etiquetas (opcional)</Label>
+                <Input
+                  id="tags"
+                  placeholder="trabajo, personal, urgente..."
+                  value={newTransaction.tags}
+                  onChange={(e) => setNewTransaction({ ...newTransaction, tags: e.target.value })}
+                  className="glass"
+                />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button variant="outline" onClick={() => setIsAddModalOpen(false)} className="flex-1">
+                  Cancelar
+                </Button>
+                <Button onClick={handleAddTransaction} className="flex-1 bg-gradient-to-r from-primary to-accent">
+                  Guardar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Filters and Search */}
+      <Card className="glass">
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar transacciones..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 glass"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")} size="sm">
+                Todas
+              </Button>
+              <Button
+                variant={filter === "credit" ? "default" : "outline"}
+                onClick={() => setFilter("credit")}
+                size="sm"
+              >
+                Solo Crédito
+              </Button>
+              <Button variant={filter === "debit" ? "default" : "outline"} onClick={() => setFilter("debit")} size="sm">
+                Solo Débito
+              </Button>
+              <Button variant={filter === "month" ? "default" : "outline"} onClick={() => setFilter("month")} size="sm">
+                Este Mes
+              </Button>
+              <Button
+                variant={filter === "unnecessary" ? "default" : "outline"}
+                onClick={() => setFilter("unnecessary")}
+                size="sm"
+              >
+                Innecesarios
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Transactions Table */}
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle>Historial de Transacciones</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left p-3 font-medium text-muted-foreground">Fecha</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">Descripción</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground">Categoría</th>
+                  <th className="text-right p-3 font-medium text-muted-foreground">Monto</th>
+                  <th className="text-center p-3 font-medium text-muted-foreground">Método</th>
+                  <th className="text-center p-3 font-medium text-muted-foreground">Estado</th>
+                  <th className="text-center p-3 font-medium text-muted-foreground">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTransactions.map((transaction) => (
+                  <tr
+                    key={transaction.id}
+                    className="border-b border-border/50 hover:bg-secondary/20 transition-colors"
+                  >
+                    <td className="p-3 text-sm text-muted-foreground">
+                      {new Date(transaction.date).toLocaleDateString("es-ES")}
+                    </td>
+                    <td className="p-3 font-medium">{transaction.description}</td>
+                    <td className="p-3">
+                      <Badge variant="secondary" className="glass">
+                        {transaction.category}
+                      </Badge>
+                    </td>
+                    <td
+                      className={`p-3 text-right font-medium ${transaction.amount > 0 ? "text-success" : "text-foreground"}`}
+                    >
+                      {transaction.amount > 0 ? "+" : ""}${Math.abs(transaction.amount).toFixed(2)}
+                    </td>
+                    <td className="p-3 text-center">
+                      <Badge
+                        variant="secondary"
+                        className={
+                          transaction.method === "Crédito" ? "bg-[#f59e0b] text-white" : "bg-[#06b6d4] text-white"
+                        }
+                      >
+                        {transaction.method === "Crédito" ? (
+                          <>
+                            <CreditCard className="w-3 h-3 mr-1" />
+                            Crédito
+                          </>
+                        ) : (
+                          <>
+                            <Banknote className="w-3 h-3 mr-1" />
+                            Débito
+                          </>
+                        )}
+                      </Badge>
+                    </td>
+                    <td className="p-3 text-center">
+                      {transaction.unnecessary && (
+                        <Badge variant="destructive" className="text-xs">
+                          Innecesario
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="p-3 text-center">
+                      <div className="flex justify-center gap-1">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+            <p className="text-sm text-muted-foreground">
+              Mostrando {filteredTransactions.length} de {sampleTransactions.length} transacciones
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled>
+                Anterior
+              </Button>
+              <Button variant="outline" size="sm">
+                1
+              </Button>
+              <Button variant="outline" size="sm" disabled>
+                Siguiente
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
