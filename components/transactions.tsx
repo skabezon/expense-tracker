@@ -26,7 +26,10 @@ export function Transactions() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [activeMonth, setActiveMonth] = useState(new Date().toISOString().slice(0, 7)) // YYYY-MM format
+  const [activeMonth, setActiveMonth] = useState(() => {
+    const today = new Date()
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}` // YYYY-MM format
+  })
   const [newTransaction, setNewTransaction] = useState<TransactionFormData>({
     date: new Date().toISOString().split('T')[0],
     description: '',
@@ -38,14 +41,19 @@ export function Transactions() {
   })
 
   const getAvailableMonths = () => {
-    const months = new Set(transactions.map(t => t.date.slice(0, 7)))
+    const months = new Set(transactions.map(t => {
+      const date = new Date(t.date)
+            console.log("🚀 ~ getAvailableMonths ~ date:", date)
+
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
+    }))
     return Array.from(months).sort().reverse() // Newest first
   }
 
   const formatMonth = (monthStr: string) => {
-    const date = new Date(monthStr + '-01')
-    console.log("jocha")
-    console.log(date)
+    const [year, month] = monthStr.split('-')
+    const date = new Date(Number(year), Number(month) - 1, 1)
     return new Intl.DateTimeFormat('es', { month: 'long', year: 'numeric' }).format(date)
   }
 
@@ -131,16 +139,21 @@ export function Transactions() {
         if (!response.ok) throw new Error('Error al cargar transacciones')
         const data = await response.json()
         // Convertir los datos de la API al formato de la interfaz actual
-        const formattedData = data.map((t: any): Transaction => ({
-          id: t._id,
-          date: new Date(t.date).toISOString().split('T')[0],
-          description: t.description,
-          category: t.category,
-          amount: t.amount,
-          method: t.method,
-          unnecessary: t.unnecessary,
-          tags: t.tags || ''
-        }))
+        const formattedData = data.map((t: any): Transaction => {
+          const date = new Date(t.date)
+          // Asegurarnos de que la fecha esté en la zona horaria local
+          date.setMinutes(date.getMinutes() + date.getTimezoneOffset())
+          return {
+            id: t._id,
+            date: date.toISOString().split('T')[0],
+            description: t.description,
+            category: t.category,
+            amount: t.amount,
+            method: t.method,
+            unnecessary: t.unnecessary,
+            tags: t.tags || ''
+          }
+        })
         setTransactions(formattedData)
       } catch (error) {
         console.error('Error:', error)

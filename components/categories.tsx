@@ -1,10 +1,12 @@
 "use client"
 
 import type React from "react"
-
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import {
   Utensils,
   Car,
@@ -16,6 +18,7 @@ import {
   MoreHorizontal,
   AlertTriangle,
 } from "lucide-react"
+import type { Transaction } from "@/lib/types/transactions"
 
 const categoryIcons = {
   Comida: Utensils,
@@ -28,88 +31,150 @@ const categoryIcons = {
   Otros: MoreHorizontal,
 }
 
-const categoriesData = [
-  {
-    name: "Comida",
-    spent: 867,
-    budget: 1000,
-    transactions: 12,
-    unnecessary: 89,
-    color: "#8b5cf6",
-    trend: "+12%",
-  },
-  {
-    name: "Transporte",
-    spent: 578,
-    budget: 600,
-    transactions: 8,
-    unnecessary: 0,
-    color: "#06b6d4",
-    trend: "-5%",
-  },
-  {
-    name: "Entretenimiento",
-    spent: 434,
-    budget: 500,
-    transactions: 6,
-    unnecessary: 16,
-    color: "#10b981",
-    trend: "+8%",
-  },
-  {
-    name: "Servicios",
-    spent: 723,
-    budget: 800,
-    transactions: 4,
-    unnecessary: 0,
-    color: "#f59e0b",
-    trend: "+3%",
-  },
-  {
-    name: "Compras",
-    spent: 289,
-    budget: 400,
-    transactions: 5,
-    unnecessary: 155,
-    color: "#ef4444",
-    trend: "-15%",
-  },
-  {
-    name: "Salud",
-    spent: 68,
-    budget: 200,
-    transactions: 2,
-    unnecessary: 0,
-    color: "#ec4899",
-    trend: "+2%",
-  },
-  {
-    name: "Educación",
-    spent: 0,
-    budget: 300,
-    transactions: 0,
-    unnecessary: 0,
-    color: "#8b5cf6",
-    trend: "0%",
-  },
-  {
-    name: "Otros",
-    spent: 45,
-    budget: 100,
-    transactions: 3,
-    unnecessary: 0,
-    color: "#6b7280",
-    trend: "+25%",
-  },
-]
+type CategoryData = {
+  name: string
+  spent: number
+  budget: number
+  transactions: number
+  unnecessary: number
+  color: string
+  trend: string
+}
+
+const INITIAL_BUDGET = 1000 // Presupuesto inicial por categoría
 
 export function Categories() {
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const today = new Date()
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  })
+
+  const getAvailableMonths = () => {
+    const months = new Set(transactions.map(t => {
+      const date = new Date(t.date)
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    }))
+    return Array.from(months).sort().reverse()
+  }
+
+  const formatMonth = (monthStr: string) => {
+    const [year, month] = monthStr.split('-')
+    const date = new Date(Number(year), Number(month) - 1, 1)
+    return new Intl.DateTimeFormat('es', { month: 'long', year: 'numeric' }).format(date)
+  }
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const response = await fetch('/api/transactions')
+        if (!response.ok) throw new Error('Error al cargar transacciones')
+        const data = await response.json()
+        const formattedData = data.map((t: any): Transaction => {
+          const date = new Date(t.date)
+          date.setMinutes(date.getMinutes() + date.getTimezoneOffset())
+          return {
+            id: t._id,
+            date: date.toISOString().split('T')[0],
+            description: t.description,
+            category: t.category,
+            amount: t.amount,
+            method: t.method,
+            unnecessary: t.unnecessary,
+            tags: t.tags || ''
+          }
+        })
+        setTransactions(formattedData)
+      } catch (error) {
+        console.error('Error:', error)
+      }
+    }
+
+    fetchTransactions()
+  }, [])
+
+  const getCategoryData = (): CategoryData[] => {
+    const filteredTransactions = transactions.filter(t => t.date.startsWith(selectedMonth))
+    
+    const categoryStats = Object.entries(categoryIcons).map(([name]) => {
+      const categoryTransactions = filteredTransactions.filter(t => t.category === name)
+      const spent = categoryTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0)
+      const unnecessary = categoryTransactions
+        .filter(t => t.unnecessary)
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+
+      const [year, month] = selectedMonth.split('-').map(Number)
+      const prevMonth = month === 1 ? 12 : month - 1
+      const prevYear = month === 1 ? year - 1 : year
+      const prevMonthStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}`
+      const prevTransactions = transactions
+        .filter(t => t.date.startsWith(prevMonthStr) && t.category === name)
+      const prevSpent = prevTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0)
+      
+      let trend = '0%'
+      if (prevSpent > 0) {
+        const trendValue = ((spent - prevSpent) / prevSpent) * 100
+        trend = `${trendValue > 0 ? '+' : ''}${trendValue.toFixed(0)}%`
+      } else if (spent > 0) {
+        trend = '+100%'
+      }
+
+      return {
+        name,
+        spent,
+        budget: INITIAL_BUDGET,
+        transactions: categoryTransactions.length,
+        unnecessary,
+        color: getCategoryColor(name),
+        trend
+      }
+    })
+
+    return categoryStats.sort((a, b) => b.spent - a.spent)
+  }
+
+  const getCategoryColor = (name: string): string => {
+    const colors: Record<string, string> = {
+      Comida: '#8b5cf6',
+      Transporte: '#06b6d4',
+      Entretenimiento: '#10b981',
+      Servicios: '#f59e0b',
+      Compras: '#ef4444',
+      Salud: '#ec4899',
+      Educación: '#8b5cf6',
+      Otros: '#6b7280'
+    }
+    return colors[name] || '#6b7280'
+  }
+
+  const categoriesData = getCategoryData()
+  const activeCategories = categoriesData.filter(c => c.transactions > 0).length
+  const totalUnnecessary = categoriesData.reduce((sum, c) => sum + c.unnecessary, 0)
+  const avgBudgetUsed = categoriesData.reduce((sum, c) => sum + (c.spent / c.budget), 0) / activeCategories * 100 || 0
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-balance">Categorías</h1>
-        <p className="text-muted-foreground">Análisis detallado por categoría de gasto</p>
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-3xl font-bold text-balance">Categorías</h1>
+          <p className="text-muted-foreground">Análisis detallado por categoría de gasto</p>
+        </div>
+        <div className="max-w-xs">
+          <Label>Mes</Label>
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="glass">
+              <SelectValue placeholder="Selecciona un mes" />
+            </SelectTrigger>
+            <SelectContent>
+              {getAvailableMonths().map((month) => (
+                <SelectItem key={month} value={month}>
+                  {formatMonth(month)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Summary Stats */}
@@ -117,7 +182,7 @@ export function Categories() {
         <Card className="glass">
           <CardContent className="p-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-primary">8</div>
+              <div className="text-3xl font-bold text-primary">{activeCategories}</div>
               <div className="text-sm text-muted-foreground">Categorías Activas</div>
             </div>
           </CardContent>
@@ -125,7 +190,7 @@ export function Categories() {
         <Card className="glass">
           <CardContent className="p-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-warning">$260</div>
+              <div className="text-3xl font-bold text-warning">${totalUnnecessary.toFixed(2)}</div>
               <div className="text-sm text-muted-foreground">Gastos Innecesarios</div>
             </div>
           </CardContent>
@@ -133,7 +198,7 @@ export function Categories() {
         <Card className="glass">
           <CardContent className="p-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-accent">72%</div>
+              <div className="text-3xl font-bold text-accent">{avgBudgetUsed.toFixed(0)}%</div>
               <div className="text-sm text-muted-foreground">Promedio de Presupuesto Usado</div>
             </div>
           </CardContent>
@@ -170,7 +235,7 @@ export function Categories() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold">${category.spent}</span>
+                    <span className="text-2xl font-bold">${category.spent.toFixed(2)}</span>
                     <Badge variant={category.trend.startsWith("+") ? "destructive" : "secondary"} className="text-xs">
                       {category.trend}
                     </Badge>
@@ -196,24 +261,17 @@ export function Categories() {
                   />
                   <div className="text-xs text-muted-foreground">
                     {isOverBudget ? (
-                      <span className="text-destructive">Excedido por ${category.spent - category.budget}</span>
+                      <span className="text-destructive">Excedido por ${(category.spent - category.budget).toFixed(2)}</span>
                     ) : (
-                      <span>${category.budget - category.spent} restante</span>
+                      <span>Restante ${(category.budget - category.spent).toFixed(2)}</span>
                     )}
                   </div>
+                  {hasUnnecessary && (
+                    <div className="text-xs text-warning">
+                      ${category.unnecessary.toFixed(2)} en gastos innecesarios
+                    </div>
+                  )}
                 </div>
-
-                {hasUnnecessary && (
-                  <div className="pt-2 border-t border-border">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-warning">Gastos innecesarios</span>
-                      <span className="font-medium text-warning">${category.unnecessary}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {Math.round((category.unnecessary / category.spent) * 100)}% del total de la categoría
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
           )
@@ -255,8 +313,8 @@ export function Categories() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-bold text-warning">${category.unnecessary}</div>
-                      <div className="text-sm text-muted-foreground">de ${category.spent} total</div>
+                      <div className="font-bold text-warning">${category.unnecessary.toFixed(2)}</div>
+                      <div className="text-sm text-muted-foreground">de ${category.spent.toFixed(2)} total</div>
                     </div>
                   </div>
                 )
