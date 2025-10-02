@@ -30,8 +30,8 @@ export async function GET(request: Request) {
 
     // Get data from all services
     const [income, saving, transactions] = await Promise.all([
-      IncomeService.getMonthlyIncome(year, month),
-      SavingService.getMonthlySaving(year, month),
+      IncomeService.getMonthlyIncome(year, month, userId as string),
+      SavingService.getMonthlySaving(year, month, userId as string),
       TransactionService.findByUserId(userId || session.user.email)
     ])
 

@@ -431,7 +431,7 @@ export function Transactions() {
                         <td
                           className={`p-3 text-right font-medium ${transaction.amount > 0 ? "text-success" : "text-foreground"}`}
                         >
-                          {transaction.amount > 0 ? "+" : ""}${Math.abs(transaction.amount).toFixed(2)}
+                          {transaction.amount > 0 ? "+" : ""}${Math.abs(transaction.amount).toFixed(0)}
                         </td>
                         <td className="p-3 text-center">
                           <Badge

@@ -19,9 +19,9 @@ export class UserService {
   /**
    * Buscar usuario por Google ID
    */
-  static async findByGoogleId(googleId: string): Promise<User | null> {
+  static async findByGoogleId(_id: string): Promise<User | null> {
     const collection = await this.getCollection()
-    return await collection.findOne({ googleId })
+    return await collection.findOne({ _id } as any)
   }
 
   /**
@@ -30,7 +30,7 @@ export class UserService {
   static async findById(id: string): Promise<User | null> {
     try {
       const collection = await this.getCollection()
-      return await collection.findOne({ _id: new ObjectId(id) })
+      return await collection.findOne({ _id: id } as any)
     } catch (error) {
       return null
     }

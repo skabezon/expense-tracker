@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
 import {
   Utensils,
   Car,
@@ -19,6 +20,8 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import type { Transaction } from "@/lib/types/transactions"
+import type { CategoryBudget } from "@/lib/services/budgetService"
+import { BudgetDialog } from "./budget-dialog"
 
 const categoryIcons = {
   Comida: Utensils,
@@ -41,10 +44,10 @@ type CategoryData = {
   trend: string
 }
 
-const INITIAL_BUDGET = 1000 // Presupuesto inicial por categoría
-
 export function Categories() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [budgets, setBudgets] = useState<CategoryBudget[]>([])
+  const [showBudgetDialog, setShowBudgetDialog] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const today = new Date()
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -65,12 +68,20 @@ export function Categories() {
   }
 
   useEffect(() => {
-    const fetchTransactions = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/transactions')
-        if (!response.ok) throw new Error('Error al cargar transacciones')
-        const data = await response.json()
-        const formattedData = data.map((t: any): Transaction => {
+        const [transResponse, budgetResponse] = await Promise.all([
+          fetch('/api/transactions'),
+          fetch(`/api/budgets?yearMonth=${selectedMonth}`)
+        ])
+
+        if (!transResponse.ok) throw new Error('Error al cargar transacciones')
+        if (!budgetResponse.ok) throw new Error('Error al cargar presupuestos')
+
+        const transData = await transResponse.json()
+        const budgetData = await budgetResponse.json()
+
+        const formattedData = transData.map((t: any): Transaction => {
           const date = new Date(t.date)
           date.setMinutes(date.getMinutes() + date.getTimezoneOffset())
           return {
@@ -84,14 +95,16 @@ export function Categories() {
             tags: t.tags || ''
           }
         })
+
         setTransactions(formattedData)
+        setBudgets(budgetData)
       } catch (error) {
         console.error('Error:', error)
       }
     }
 
-    fetchTransactions()
-  }, [])
+    fetchData()
+  }, [selectedMonth])
 
   const getCategoryData = (): CategoryData[] => {
     const filteredTransactions = transactions.filter(t => t.date.startsWith(selectedMonth))
@@ -119,10 +132,14 @@ export function Categories() {
         trend = '+100%'
       }
 
+      // Obtener el presupuesto de la categoría
+      const categoryBudget = budgets.find(b => b.category === name)
+      const budget = categoryBudget?.amount || 0
+
       return {
         name,
         spent,
-        budget: INITIAL_BUDGET,
+        budget,
         transactions: categoryTransactions.length,
         unnecessary,
         color: getCategoryColor(name),
@@ -150,7 +167,12 @@ export function Categories() {
   const categoriesData = getCategoryData()
   const activeCategories = categoriesData.filter(c => c.transactions > 0).length
   const totalUnnecessary = categoriesData.reduce((sum, c) => sum + c.unnecessary, 0)
-  const avgBudgetUsed = categoriesData.reduce((sum, c) => sum + (c.spent / c.budget), 0) / activeCategories * 100 || 0
+  
+  // Calcular promedio de presupuesto usado solo para categorías con presupuesto > 0
+  const categoriesWithBudget = categoriesData.filter(c => c.budget > 0)
+  const avgBudgetUsed = categoriesWithBudget.length > 0 
+    ? categoriesWithBudget.reduce((sum, c) => sum + (c.spent / c.budget), 0) / categoriesWithBudget.length * 100 
+    : 0
 
   return (
     <div className="p-6 space-y-6">
@@ -160,21 +182,33 @@ export function Categories() {
           <h1 className="text-3xl font-bold text-balance">Categorías</h1>
           <p className="text-muted-foreground">Análisis detallado por categoría de gasto</p>
         </div>
-        <div className="max-w-xs">
-          <Label>Mes</Label>
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="glass">
-              <SelectValue placeholder="Selecciona un mes" />
-            </SelectTrigger>
-            <SelectContent>
-              {getAvailableMonths().map((month) => (
-                <SelectItem key={month} value={month}>
-                  {formatMonth(month)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex gap-4 items-end">
+          <div className="w-56">
+            <Label>Mes</Label>
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="glass">
+                <SelectValue placeholder="Selecciona un mes" />
+              </SelectTrigger>
+              <SelectContent>
+                {getAvailableMonths().map((month) => (
+                  <SelectItem key={month} value={month}>
+                    {formatMonth(month)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button variant="outline" onClick={() => setShowBudgetDialog(true)}>
+            Configurar Presupuestos
+          </Button>
         </div>
+        <BudgetDialog 
+          open={showBudgetDialog}
+          onOpenChange={setShowBudgetDialog}
+          yearMonth={selectedMonth}
+          currentBudgets={budgets}
+          onBudgetsUpdate={(newBudgets) => setBudgets(newBudgets)}
+        />
       </div>
 
       {/* Summary Stats */}
@@ -190,7 +224,7 @@ export function Categories() {
         <Card className="glass">
           <CardContent className="p-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-warning">${totalUnnecessary.toFixed(2)}</div>
+              <div className="text-3xl font-bold text-warning">${totalUnnecessary.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Gastos Innecesarios</div>
             </div>
           </CardContent>
@@ -209,7 +243,7 @@ export function Categories() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {categoriesData.map((category, index) => {
           const Icon = categoryIcons[category.name as keyof typeof categoryIcons]
-          const percentage = (category.spent / category.budget) * 100
+          const percentage = category.budget > 0 ? (category.spent / category.budget) * 100 : 0
           const isOverBudget = percentage > 100
           const hasUnnecessary = category.unnecessary > 0
 
@@ -235,43 +269,53 @@ export function Categories() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold">${category.spent.toFixed(2)}</span>
+                    <span className="text-2xl font-bold">${category.spent.toLocaleString()}</span>
                     <Badge variant={category.trend.startsWith("+") ? "destructive" : "secondary"} className="text-xs">
                       {category.trend}
                     </Badge>
                   </div>
-                  <div className="text-sm text-muted-foreground">de ${category.budget} presupuestado</div>
+                  <div className="text-sm text-muted-foreground">
+                    {category.budget > 0 ? `de $${category.budget.toLocaleString()} presupuestado` : 'Sin presupuesto'}
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Progreso</span>
-                    <span className={isOverBudget ? "text-destructive font-medium" : ""}>
-                      {Math.round(percentage)}%
-                    </span>
-                  </div>
-                  <Progress
-                    value={Math.min(percentage, 100)}
-                    className="h-2"
-                    style={
-                      {
-                        "--progress-background": isOverBudget ? "hsl(var(--destructive))" : category.color,
-                      } as React.CSSProperties
-                    }
-                  />
-                  <div className="text-xs text-muted-foreground">
-                    {isOverBudget ? (
-                      <span className="text-destructive">Excedido por ${(category.spent - category.budget).toFixed(2)}</span>
-                    ) : (
-                      <span>Restante ${(category.budget - category.spent).toFixed(2)}</span>
+                {category.budget > 0 ? (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Progreso</span>
+                      <span className={isOverBudget ? "text-destructive font-medium" : ""}>
+                        {Math.round(percentage)}%
+                      </span>
+                    </div>
+                    <Progress
+                      value={Math.min(percentage, 100)}
+                      className="h-2"
+                      style={
+                        {
+                          "--progress-background": isOverBudget ? "hsl(var(--destructive))" : category.color,
+                        } as React.CSSProperties
+                      }
+                    />
+                    <div className="text-xs text-muted-foreground">
+                      {isOverBudget ? (
+                        <span className="text-destructive">
+                          Excedido por ${(category.spent - category.budget).toLocaleString()}
+                        </span>
+                      ) : (
+                        <span>Restante ${(category.budget - category.spent).toLocaleString()}</span>
+                      )}
+                    </div>
+                    {hasUnnecessary && (
+                      <div className="text-xs text-warning">
+                        ${category.unnecessary.toLocaleString()} en gastos innecesarios
+                      </div>
                     )}
                   </div>
-                  {hasUnnecessary && (
-                    <div className="text-xs text-warning">
-                      ${category.unnecessary.toFixed(2)} en gastos innecesarios
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground italic">
+                    Configura un presupuesto para hacer seguimiento
+                  </div>
+                )}
               </CardContent>
             </Card>
           )
@@ -293,7 +337,7 @@ export function Categories() {
               .sort((a, b) => b.unnecessary - a.unnecessary)
               .map((category, index) => {
                 const Icon = categoryIcons[category.name as keyof typeof categoryIcons]
-                const unnecessaryPercentage = (category.unnecessary / category.spent) * 100
+                const unnecessaryPercentage = category.spent > 0 ? (category.unnecessary / category.spent) * 100 : 0
 
                 return (
                   <div
@@ -313,8 +357,8 @@ export function Categories() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-bold text-warning">${category.unnecessary.toFixed(2)}</div>
-                      <div className="text-sm text-muted-foreground">de ${category.spent.toFixed(2)} total</div>
+                      <div className="font-bold text-warning">${category.unnecessary.toLocaleString()}</div>
+                      <div className="text-sm text-muted-foreground">de ${category.spent.toLocaleString()} total</div>
                     </div>
                   </div>
                 )

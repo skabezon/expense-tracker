@@ -9,9 +9,11 @@ import { Label } from "@/components/ui/label"
 import { TrendingUp, TrendingDown, AlertTriangle, Target } from "lucide-react"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import type { Transaction } from "@/lib/types/transactions"
+import type { CategoryBudget } from "@/lib/services/budgetService"
 
 export function Analytics() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [budgets, setBudgets] = useState<CategoryBudget[]>([])
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const today = new Date()
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -60,6 +62,26 @@ export function Analytics() {
     fetchTransactions()
   }, [])
 
+  useEffect(() => {
+    const fetchBudgets = async () => {
+      try {
+        const response = await fetch(`/api/budgets?yearMonth=${selectedMonth}`)
+        if (!response.ok) throw new Error('Error al cargar presupuestos')
+        const data = await response.json()
+        setBudgets(data)
+      } catch (error) {
+        console.error('Error:', error)
+      }
+    }
+
+    fetchBudgets()
+  }, [selectedMonth])
+
+  const getBudgetForCategory = (category: string): number => {
+    const budget = budgets.find(b => b.category === category)
+    return budget?.amount || 0
+  }
+
   const getMonthlyTransactions = () => {
     return transactions.filter(t => t.date.startsWith(selectedMonth))
   }
@@ -72,7 +94,7 @@ export function Analytics() {
     return categories.map(category => {
       const categoryTransactions = monthlyTransactions.filter(t => t.category === category)
       const amount = categoryTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0)
-      const budget = 1000
+      const budget = getBudgetForCategory(category)
       const unnecessary = categoryTransactions
         .filter(t => t.unnecessary)
         .reduce((sum, t) => sum + Math.abs(t.amount), 0)
@@ -216,13 +238,13 @@ export function Analytics() {
               <div className="flex items-center justify-between">
                 <span className="font-medium">{item.category}</span>
                 <div className="text-right">
-                  <span className="font-bold">${item.amount.toFixed(2)}</span>
-                  <span className="text-sm text-muted-foreground ml-2">de ${item.budget}</span>
+                  <span className="font-bold">${item.amount.toLocaleString()}</span>
+                  <span className="text-sm text-muted-foreground ml-2">de ${item.budget.toLocaleString()}</span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Progress
-                  value={(item.amount / item.budget) * 100}
+                  value={item.budget > 0 ? (item.amount / item.budget) * 100 : 0}
                   className="flex-1"
                   style={
                     {
@@ -233,8 +255,8 @@ export function Analytics() {
                 <span className="text-sm font-medium w-12 text-right">{item.percentage.toFixed(1)}%</span>
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{Math.round((item.amount / item.budget) * 100)}% del presupuesto</span>
-                <span>${(item.budget - item.amount).toFixed(2)} restante</span>
+                <span>{item.budget > 0 ? Math.round((item.amount / item.budget) * 100) : 0}% del presupuesto</span>
+                <span>${(item.budget - item.amount).toLocaleString()} restante</span>
               </div>
             </div>
           ))}
@@ -265,7 +287,7 @@ export function Analytics() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold">${item.amount.toFixed(2)}</div>
+                    <div className="font-bold">${item.amount.toLocaleString()}</div>
                   </div>
                 </div>
               ))}
@@ -305,7 +327,7 @@ export function Analytics() {
                     <span className="font-medium">{item.name}</span>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold">${item.amount.toFixed(2)}</div>
+                    <div className="font-bold">${item.amount.toLocaleString()}</div>
                     <div className="text-sm text-muted-foreground">{item.value.toFixed(1)}%</div>
                   </div>
                 </div>
@@ -328,7 +350,7 @@ export function Analytics() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-warning">${unnecessaryData.total.toFixed(2)}</div>
+                <div className="text-2xl font-bold text-warning">${unnecessaryData.total.toLocaleString()}</div>
                 <div className="text-sm text-muted-foreground">Total Innecesario</div>
               </div>
               <div className="text-center">
@@ -343,7 +365,7 @@ export function Analytics() {
                 <div key={index} className="space-y-2">
                   <div className="flex justify-between">
                     <span className="font-medium">{item.category}</span>
-                    <span className="text-warning font-bold">${item.amount.toFixed(2)}</span>
+                    <span className="text-warning font-bold">${item.amount.toLocaleString()}</span>
                   </div>
                   <div className="text-sm text-muted-foreground">{item.items.join(", ")}</div>
                 </div>
@@ -361,18 +383,37 @@ export function Analytics() {
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={getMonthlyComparison()}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="category" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                <XAxis
+                  dataKey="category"
+                  stroke="rgba(255, 255, 255, 0.7)"
+                  tick={{ fill: 'rgba(255, 255, 255, 0.7)' }}
+                />
+                <YAxis
+                  stroke="rgba(255, 255, 255, 0.7)"
+                  tick={{ fill: 'rgba(255, 255, 255, 0.7)' }}
+                />
                 <Tooltip
+                  cursor={{ fill: 'transparent' }}
                   contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    border: "1px solid rgba(255, 255, 255, 0.2)",
                     borderRadius: "8px",
+                    color: "white"
                   }}
                 />
-                <Bar dataKey="previous" fill="hsl(var(--muted))" name="Mes Anterior" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="current" fill="hsl(var(--primary))" name="Mes Actual" radius={[2, 2, 0, 0]} />
+                <Bar
+                  dataKey="previous"
+                  fill="rgba(156, 163, 175, 0.6)"
+                  name="Mes Anterior"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey="current"
+                  fill="#06b6d4"
+                  name="Mes Actual"
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

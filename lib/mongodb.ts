@@ -1,10 +1,11 @@
 import { MongoClient, Db } from 'mongodb'
 
-if (!process.env.MONGODB_URI) {
-  throw new Error('Por favor define la variable MONGODB_URI en .env.local')
+if (!process.env.MONGODB_HOST || !process.env.MONGODB_USER || !process.env.MONGODB_PASSWORD) {
+  throw new Error('Please define the MONGODB_HOST, MONGODB_USER and MONGODB_PASSWORD environment variables inside .env.local')
 }
 
-const uri = process.env.MONGODB_URI
+const uri = `mongodb+srv://${process.env.MONGODB_USER}:${process.env.MONGODB_PASSWORD}@${process.env.MONGODB_HOST}/?retryWrites=true&w=majority`
+
 const options = {}
 
 let client: MongoClient

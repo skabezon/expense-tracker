@@ -23,10 +23,10 @@ export class SavingService {
   /**
    * Obtener ahorros de un año específico
    */
-  static async getSavings(year: string): Promise<YearlySaving | null> {
+  static async getSavings(year: string, userId: string): Promise<YearlySaving | null> {
     try {
       const collection = await this.getCollection()
-      return await collection.findOne({ id: year })
+      return await collection.findOne({ _id: `${year}_${userId}` } as any)
     } catch (error) {
       console.error('Error getting savings:', error)
       return null
@@ -36,8 +36,8 @@ export class SavingService {
   /**
    * Obtener ahorro de un mes específico
    */
-  static async getMonthlySaving(year: string, month: string): Promise<number> {
-    const yearlySaving = await this.getSavings(year)
+  static async getMonthlySaving(year: string, month: string, userId: string): Promise<number> {
+    const yearlySaving = await this.getSavings(year, userId)
     if (!yearlySaving) return 0
 
     const monthSaving = yearlySaving.savings.find(
@@ -49,11 +49,11 @@ export class SavingService {
   /**
    * Crear o actualizar ahorros de un año
    */
-  static async upsertYearlySaving(year: string, savings: Saving[]): Promise<YearlySaving> {
+  static async upsertYearlySaving(year: string, savings: Saving[], userId: string): Promise<YearlySaving> {
     const collection = await this.getCollection()
 
     const result = await collection.findOneAndUpdate(
-      { id: year },
+      { _id: `${year}_${userId}` as any, },
       {
         $set: {
           savings,
@@ -79,13 +79,14 @@ export class SavingService {
   static async updateMonthlySaving(
     year: string,
     month: string,
-    amount: number
+    amount: number,
+    userId: string
   ): Promise<YearlySaving | null> {
     const collection = await this.getCollection()
 
     const result = await collection.findOneAndUpdate(
       {
-        id: year,
+        _id: `${year}_${userId}` as any,
         'savings.month': month
       },
       {

@@ -23,10 +23,10 @@ export class IncomeService {
   /**
    * Obtener ingresos de un año específico
    */
-  static async getIncomes(year: string): Promise<YearlyIncome | null> {
+  static async getIncomes(year: string, userId: string): Promise<YearlyIncome | null> {
     try {
       const collection = await this.getCollection()
-      return await collection.findOne({ id: year })
+      return await collection.findOne({ _id: `${year}_${userId}` as any })
     } catch (error) {
       console.error('Error getting incomes:', error)
       return null
@@ -36,8 +36,8 @@ export class IncomeService {
   /**
    * Obtener ingreso de un mes específico
    */
-  static async getMonthlyIncome(year: string, month: string): Promise<number> {
-    const yearlyIncome = await this.getIncomes(year)
+  static async getMonthlyIncome(year: string, month: string, userId: string): Promise<number> {
+    const yearlyIncome = await this.getIncomes(year, userId)
     if (!yearlyIncome) return 0
 
     const monthIncome = yearlyIncome.incomes.find(
@@ -49,11 +49,11 @@ export class IncomeService {
   /**
    * Crear o actualizar ingresos de un año
    */
-  static async upsertYearlyIncome(year: string, incomes: Income[]): Promise<YearlyIncome> {
+  static async upsertYearlyIncome(year: string, incomes: Income[], userId: string): Promise<YearlyIncome> {
     const collection = await this.getCollection()
 
     const result = await collection.findOneAndUpdate(
-      { id: year },
+      { _id: `${year}_${userId}` as any },
       {
         $set: {
           incomes,
@@ -79,13 +79,14 @@ export class IncomeService {
   static async updateMonthlyIncome(
     year: string,
     month: string,
-    amount: number
+    amount: number,
+    userId: string
   ): Promise<YearlyIncome | null> {
     const collection = await this.getCollection()
 
     const result = await collection.findOneAndUpdate(
       {
-        id: year,
+        _id: `${year}_${userId}` as any,
         'incomes.month': month
       },
       {
@@ -100,7 +101,7 @@ export class IncomeService {
     // Si no existe el mes, lo agregamos
     if (!result) {
       return await collection.findOneAndUpdate(
-        { id: year },
+        { _id: `${year}_${userId}` as any },
         {
           $push: {
             incomes: { month, amount }

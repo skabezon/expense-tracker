@@ -84,28 +84,28 @@ export function Dashboard() {
   const summaryData = [
     {
       title: "Ingresos Totales",
-      value: `$${(dashboardData.income / 1000).toFixed(0)}K`,
+      value: `$${(dashboardData.income).toFixed(0)}`,
       change: "0%",
       icon: TrendingUp,
       color: "text-success"
     },
     {
       title: "Gastos Totales",
-      value: `$${(dashboardData.expenses / 1000).toFixed(0)}K`,
+      value: `$${(dashboardData.expenses).toFixed(0)}`,
       change: "0%",
       icon: TrendingDown,
       color: "text-destructive"
     },
     {
       title: "Balance",
-      value: `$${((dashboardData.income - dashboardData.expenses) / 1000).toFixed(0)}K`,
+      value: `$${((dashboardData.income - dashboardData.expenses - dashboardData.saving)).toFixed(0)}`,
       change: "0%",
       icon: DollarSign,
       color: "text-primary"
     },
     {
       title: "Ahorros",
-      value: `$${(dashboardData.saving / 1000).toFixed(0)}K`,
+      value: `$${(dashboardData.saving).toFixed(0)}`,
       change: "0%",
       icon: PiggyBank,
       color: "text-accent"
