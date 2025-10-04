@@ -1,69 +1,43 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../auth/[...nextauth]/route'
-import { BudgetService, type CategoryBudget } from '@/lib/services/budgetService'
+import { NextRequest } from 'next/server'
+import { getAuthenticatedUser } from '@/lib/api/auth'
+import { BudgetService } from '@/lib/services/budgetService'
+import { validateBody, BudgetSchema } from '@/lib/api/validation'
+import { successResponse, handleApiError } from '@/lib/api/response'
+import { z } from 'zod'
 
-export async function GET(request: Request) {
+const QuerySchema = z.object({
+  yearMonth: z.string().regex(/^\d{4}-\d{2}$/),
+})
+
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    const userId = request.headers.get("x-user-id")
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const user = await getAuthenticatedUser()
 
     const { searchParams } = new URL(request.url)
     const yearMonth = searchParams.get('yearMonth')
 
     if (!yearMonth) {
-      return NextResponse.json(
-        { error: 'Year and month are required in YYYY-MM format' },
-        { status: 400 }
-      )
+      throw new Error('Year and month are required in YYYY-MM format')
     }
 
-    const budgets = await BudgetService.getCategoryBudgets(userId as string, yearMonth)
-    return NextResponse.json(budgets)
+    // Validar formato
+    QuerySchema.parse({ yearMonth })
 
+    const budgets = await BudgetService.getCategoryBudgets(user.id, yearMonth)
+    return successResponse(budgets)
   } catch (error) {
-    console.error('Error:', error)
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'GET /budgets')
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    const userId = request.headers.get("x-user-id")
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const user = await getAuthenticatedUser()
+    const data = await validateBody(request, BudgetSchema)
 
-    const { yearMonth, budgets } = await request.json()
-
-    if (!yearMonth || !budgets || !Array.isArray(budgets)) {
-      return NextResponse.json(
-        { error: 'Invalid request body' },
-        { status: 400 }
-      )
-    }
-
-    await BudgetService.setBudgets(userId as string, yearMonth, budgets)
-    return NextResponse.json({ success: true })
-
+    await BudgetService.setBudgets(user.id, data.yearMonth, data.budgets)
+    return successResponse({ success: true }, 'Presupuestos guardados')
   } catch (error) {
-    console.error('Error:', error)
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'POST /budgets')
   }
 }

@@ -1,42 +1,32 @@
-import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { IncomeService } from '@/lib/services/incomeService'
 import { SavingService } from '@/lib/services/savingService'
 import { TransactionService } from '@/lib/services/transactionService'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '../auth/[...nextauth]/route'
+import { getAuthenticatedUser } from '@/lib/api/auth'
+import { successResponse, handleApiError } from '@/lib/api/response'
 import { monthToNumber } from '@/lib/utils'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    const userId = request.headers.get("x-user-id")
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const user = await getAuthenticatedUser()
 
     const { searchParams } = new URL(request.url)
     const year = searchParams.get('year')
     const month = searchParams.get('month')
 
     if (!year || !month) {
-      return NextResponse.json(
-        { error: 'Year and month are required' },
-        { status: 400 }
-      )
+      throw new Error('Year and month are required')
     }
 
     // Get data from all services
     const [income, saving, transactions] = await Promise.all([
-      IncomeService.getMonthlyIncome(year, month, userId as string),
-      SavingService.getMonthlySaving(year, month, userId as string),
-      TransactionService.findByUserId(userId || session.user.email)
+      IncomeService.getMonthlyIncome(year, month, user.id),
+      SavingService.getMonthlySaving(year, month, user.id),
+      TransactionService.findByUserId(user.id)
     ])
 
-
     const monthNumber = monthToNumber(month)
+
     // Filter transactions for the specified month
     const monthTransactions = transactions.filter(t => {
       const transDate = new Date(t.date)
@@ -52,17 +42,13 @@ export async function GET(request: Request) {
       0
     )
 
-    return NextResponse.json({
+    return successResponse({
       income,
       saving,
       expenses: totalExpenses,
       transactions: monthTransactions
     })
   } catch (error) {
-    console.error('Error:', error)
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'GET /dashboard')
   }
 }

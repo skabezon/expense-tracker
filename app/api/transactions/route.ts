@@ -1,60 +1,78 @@
 import { NextRequest, NextResponse } from "next/server"
 import { TransactionService } from "@/lib/services/transactionService"
+import { getAuthenticatedUser } from "@/lib/api/auth"
+import { validateBody, TransactionSchema } from "@/lib/api/validation"
+import {
+  successResponse,
+  createdResponse,
+  handleApiError,
+} from "@/lib/api/response"
 
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-user-id',
+// ❌ QUITAR CORS '*' - Solo permitir tu dominio
+const corsHeaders = (origin?: string) => {
+  const allowedOrigins = [
+    process.env.NEXTAUTH_URL,
+    'http://localhost:3000',
+  ].filter(Boolean)
+
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
   }
+
+  if (origin && allowedOrigins.includes(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin
+  }
+
+  return headers
 }
 
-// Manejar preflight requests
 export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, {
     status: 200,
-    headers: corsHeaders(),
-  });
+    headers: corsHeaders(req.headers.get('origin') || undefined),
+  })
 }
-export async function GET(request: Request) {
-  try {
-    const userId = request.headers.get("x-user-id")
-    if (!userId) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
 
-    const transactions = await TransactionService.findByUserId(userId)
-    return NextResponse.json(transactions, { headers: corsHeaders() })
+/**
+ * GET /api/transactions
+ * Obtener todas las transacciones del usuario
+ */
+export async function GET(request: NextRequest) {
+  try {
+    // ✅ Obtener usuario de forma SEGURA con getServerSession
+    const user = await getAuthenticatedUser()
+
+    // Obtener transacciones
+    const transactions = await TransactionService.findByUserId(user.id)
+
+    return successResponse(transactions)
   } catch (error) {
-    console.error("Error al obtener transacciones:", error)
-    return NextResponse.json(
-      { error: "Error al obtener transacciones" },
-      { status: 500, headers: corsHeaders() }
-    )
+    return handleApiError(error, 'GET /transactions')
   }
 }
 
-export async function POST(request: Request) {
+/**
+ * POST /api/transactions
+ * Crear nueva transacción
+ */
+export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id")
-    if (!userId) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
+    // ✅ Autenticación segura
+    const user = await getAuthenticatedUser()
 
-    const body = await request.json()
+    // ✅ Validar con Zod
+    const data = await validateBody(request, TransactionSchema)
+
+    // Crear transacción
     const transaction = await TransactionService.create({
-      ...body,
-      userId,
-      date: new Date(body.date),
+      ...data,
+      userId: user.id,
+      date: new Date(data.date),
     })
 
-    return NextResponse.json(transaction, { headers: corsHeaders() })
+    return createdResponse(transaction, 'Transacción creada exitosamente')
   } catch (error) {
-    console.error("Error al crear transacción:", error)
-    return NextResponse.json(
-      { error: "Error al crear transacción" },
-      { status: 500, headers: corsHeaders() }
-    )
+    return handleApiError(error, 'POST /transactions')
   }
 }
-

@@ -1,125 +1,71 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '../auth/[...nextauth]/route'
+import { NextRequest } from 'next/server'
+import { getAuthenticatedUser } from '@/lib/api/auth'
 import { UserService } from '@/lib/services/userService'
+import { successResponse, handleApiError } from '@/lib/api/response'
+import { z } from 'zod'
+
+const UpdateUserSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  image: z.string().url().optional(),
+})
 
 /**
- * GET /api/users - Obtener información del usuario actual
+ * GET /api/users - Obtener información del usuario autenticado
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
-
-    const user = await UserService.findByEmail(session.user.email!)
+    const authUser = await getAuthenticatedUser()
+    const user = await UserService.findByEmail(authUser.email)
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Usuario no encontrado' },
-        { status: 404 }
-      )
+      throw new Error('Usuario no encontrado')
     }
 
-    // No devolver información sensible
-    const { ...safeUser } = user
-
-    return NextResponse.json({
-      success: true,
-      user: safeUser,
-    })
+    return successResponse(user)
   } catch (error) {
-    console.error('Error en GET /api/users:', error)
-    return NextResponse.json(
-      { error: 'Error del servidor' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'GET /api/users')
   }
 }
 
 /**
- * PUT /api/users - Actualizar información del usuario actual
+ * PUT /api/users - Actualizar información del usuario autenticado
  */
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
-
+    const authUser = await getAuthenticatedUser()
     const body = await request.json()
-    const { name, image } = body
+    const data = UpdateUserSchema.parse(body)
 
-    const user = await UserService.findByEmail(session.user.email!)
+    const user = await UserService.findByEmail(authUser.email)
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Usuario no encontrado' },
-        { status: 404 }
-      )
+      throw new Error('Usuario no encontrado')
     }
 
-    const updatedUser = await UserService.update(user._id!.toString(), {
-      name,
-      image,
-    })
+    const updatedUser = await UserService.update(user._id!.toString(), data)
 
-    return NextResponse.json({
-      success: true,
-      user: updatedUser,
-    })
+    return successResponse(updatedUser, 'Usuario actualizado correctamente')
   } catch (error) {
-    console.error('Error en PUT /api/users:', error)
-    return NextResponse.json(
-      { error: 'Error del servidor' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'PUT /api/users')
   }
 }
 
 /**
- * DELETE /api/users - Eliminar cuenta del usuario actual
+ * DELETE /api/users - Eliminar cuenta del usuario autenticado
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
-
-    const user = await UserService.findByEmail(session.user.email!)
+    const authUser = await getAuthenticatedUser()
+    const user = await UserService.findByEmail(authUser.email)
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Usuario no encontrado' },
-        { status: 404 }
-      )
+      throw new Error('Usuario no encontrado')
     }
 
     await UserService.delete(user._id!.toString())
 
-    return NextResponse.json({
-      success: true,
-      message: 'Usuario eliminado correctamente',
-    })
+    return successResponse(null, 'Usuario eliminado correctamente')
   } catch (error) {
-    console.error('Error en DELETE /api/users:', error)
-    return NextResponse.json(
-      { error: 'Error del servidor' },
-      { status: 500 }
-    )
+    return handleApiError(error, 'DELETE /api/users')
   }
 }
